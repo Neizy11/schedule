@@ -155,8 +155,8 @@ nav button.on{color:#a99cff;background:linear-gradient(180deg,#6d5dfc40,#6d5dfc1
   </div>
 
   <div id="weekSetup" class="card" style="display:none">
-    <b style="font-size:16px">Який зараз тиждень?</b>
-    <div class="hint" style="margin:4px 0 12px">Скажи один раз — далі я сам чергую 1 і 2.</div>
+    <b style="font-size:16px" id="setupQ">Який зараз тиждень?</b>
+    <div class="hint" style="margin:4px 0 12px">Скажи один раз — далі я сам чергую 1 і 2. Потім це можна змінити у «⚙️ Підігнати фото».</div>
     <div class="row"><button class="btn grow" onclick="setCurrentWeek(1)">Тиждень 1</button><button class="btn grow" onclick="setCurrentWeek(2)">Тиждень 2</button></div>
   </div>
 
@@ -178,7 +178,8 @@ nav button.on{color:#a99cff;background:linear-gradient(180deg,#6d5dfc40,#6d5dfc1
       <div class="card" style="margin-top:6px">
         <div class="hint" style="margin-bottom:8px">Лінія між «1 тиждень» і «2 тиждень» на фото має збігатись із розділенням. Підсунь повзунок, якщо одна колонка зачепила частину іншої.</div>
         <input type="range" id="split" min="40" max="60" step="0.5" value="50">
-        <div class="hint" style="margin-top:10px">Тижні не збігаються з реальністю? <button class="link" onclick="swapWeek()">Поміняти місцями 1 ↔ 2</button></div>
+        <div style="margin-top:16px"><b id="wkQ" style="font-size:14px"></b>
+          <div class="row" style="margin-top:8px"><button class="btn sm grow" id="wk1" onclick="setCurrentWeek(1)">Тиждень 1</button><button class="btn sm grow" id="wk2" onclick="setCurrentWeek(2)">Тиждень 2</button></div></div>
       </div>
     </details>
     <input type="file" id="file" accept="image/*" hidden>
@@ -342,8 +343,16 @@ function currentWeek() { // у неділю дивимось уже на нас�
   if (d.getDay() === 0) d.setDate(d.getDate() + 1);
   return weekOf(d);
 }
+function weekQuestion() {
+  const d = new Date(), sun = d.getDay() === 0;
+  if (sun) d.setDate(d.getDate() + 1);
+  const m = mondayOf(d), ds = `${pad(m.getDate())}.${pad(m.getMonth() + 1)}`;
+  return sun ? `Тиждень, що починається в понеділок ${ds}, — це:` : `Поточний тиждень (з понеділка ${ds}) — це:`;
+}
 async function setCurrentWeek(n) {
-  const m = mondayOf(new Date());
+  const ref = new Date();
+  if (ref.getDay() === 0) ref.setDate(ref.getDate() + 1); // у неділю рахуємо від наступного понеділка
+  const m = mondayOf(ref);
   if (n === 2) m.setDate(m.getDate() - 7);
   S.anchor = iso(m);
   await save('anchor', S.anchor);
@@ -465,6 +474,9 @@ function renderSchedule() {
   $('delBtn').style.display = S.img ? '' : 'none';
   $('tune').style.display = S.img ? '' : 'none';
   $('split').value = S.split * 100;
+  $('wkQ').textContent = weekQuestion();
+  $('wk1').className = 'btn sm grow' + (cur === 1 ? '' : ' sec');
+  $('wk2').className = 'btn sm grow' + (cur === 2 ? '' : ' sec');
 }
 function openViewer() { $('viewerBody').innerHTML = photoHTML(viewMode); $('viewer').style.display = 'block'; }
 function closeViewer() { $('viewer').style.display = 'none'; }
@@ -572,6 +584,7 @@ function go(tab) {
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.tab));
 
 function renderAll() {
+  $('setupQ').textContent = weekQuestion();
   renderHeader(); renderHome(); renderSchedule(); renderBells(); renderNotes();
   $('weekSetup').style.display = !S.anchor && (curTab === 'home' || curTab === 'schedule') ? 'block' : 'none';
 }
