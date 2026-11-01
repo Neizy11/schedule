@@ -172,6 +172,7 @@ nav button.on{color:#a99cff;background:linear-gradient(180deg,#6d5dfc40,#6d5dfc1
       <button id="uploadBtn" class="btn grow">📷 Завантажити фото</button>
       <button id="delBtn" class="btn danger" style="display:none">Видалити</button>
     </div>
+    <div class="hint center" id="syncInfo" style="margin-top:10px"></div>
     <details id="tune" style="display:none">
       <summary>⚙️ Підігнати фото</summary>
       <div class="card" style="margin-top:6px">
@@ -229,64 +230,89 @@ if (tg) {
   try { tg.setHeaderColor('#080b14'); tg.setBackgroundColor('#080b14'); tg.setBottomBarColor('#080b14'); } catch (e) {}
 }
 
-/* ---------- сховище: Telegram CloudStorage (синхронно між пристроями), запасний варіант — localStorage ---------- */
+/* ---------- сховище: два шари — localStorage (миттєво, на цьому пристрої) + Telegram CloudStorage (між пристроями) ---------- */
 const useCloud = !!(tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9'));
-const raw = {
-  get: k => new Promise(res => {
-    if (useCloud) tg.CloudStorage.getItem(k, (e, v) => res(e ? null : (v || null)));
-    else res(localStorage.getItem('app_' + k));
-  }),
+const LS = {
+  get: k => { try { return localStorage.getItem('app_' + k); } catch (e) { return null; } },
+  set: (k, v) => { try { localStorage.setItem('app_' + k, v); return true; } catch (e) { return false; } },
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const cloud = useCloud ? {
+  get: k => new Promise(res => tg.CloudStorage.getItem(k, (e, v) => res(e ? '' : (v || '')))),
   getMany: async keys => {
     const out = {};
     for (let i = 0; i < keys.length; i += 50) {
       const part = keys.slice(i, i + 50);
-      const got = await new Promise(res => {
-        if (useCloud) tg.CloudStorage.getItems(part, (e, v) => res(e ? {} : v));
-        else res(Object.fromEntries(part.map(k => [k, localStorage.getItem('app_' + k)])));
-      });
+      const got = await new Promise((res, rej) => tg.CloudStorage.getItems(part, (e, v) => e ? rej(e) : res(v)));
       Object.assign(out, got);
     }
     return out;
   },
-  set: (k, v) => new Promise((res, rej) => {
-    if (useCloud) {
-      tg.CloudStorage.setItem(k, v, e => {
-        if (!e) return res();
-        tg.CloudStorage.setItem(k, v, e2 => e2 ? rej(e2) : res()); // одна повторна спроба
-      });
-    } else { try { localStorage.setItem('app_' + k, v); res(); } catch (x) { rej(x); } }
-  }),
-  del: keys => new Promise(res => {
-    if (!keys.length) return res();
-    if (useCloud) tg.CloudStorage.removeItems(keys, () => res());
-    else { keys.forEach(k => localStorage.removeItem('app_' + k)); res(); }
-  }),
-};
+  set: async (k, v) => {
+    for (let a = 0; a < 3; a++) {
+      const ok = await new Promise(res => tg.CloudStorage.setItem(k, v, e => res(!e)));
+      if (ok) return;
+      await sleep(300 * (a + 1));
+    }
+    throw new Error('cloud set failed');
+  },
+  del: keys => new Promise(res => keys.length ? tg.CloudStorage.removeItems(keys, () => res()) : res()),
+} : null;
+
 const CH = 3500; // ліміт CloudStorage — 4096 символів на ключ, тому ріжемо на шматки
-async function save(key, str) {
-  const old = parseInt(await raw.get(key + '_n') || '0', 10);
+async function cloudSave(key, str, ts) {
+  const old = parseInt(await cloud.get(key + '_n') || '0', 10) || 0;
   const parts = [];
   for (let i = 0; i < str.length; i += CH) parts.push(str.slice(i, i + CH));
-  for (let i = 0; i < parts.length; i += 8) {
-    await Promise.all(parts.slice(i, i + 8).map((p, j) => raw.set(key + '_' + (i + j), p)));
+  for (let i = 0; i < parts.length; i += 3) {
+    await Promise.all(parts.slice(i, i + 3).map((p, j) => cloud.set(key + '_' + (i + j), p)));
   }
-  await raw.set(key + '_n', String(parts.length));
+  await cloud.set(key + '_n', String(parts.length));
+  await cloud.set(key + '_t', ts + '|' + str.length); // мітка часу + довжина для перевірки цілісності
   const extra = [];
   for (let i = parts.length; i < old; i++) extra.push(key + '_' + i);
-  await raw.del(extra);
+  await cloud.del(extra);
 }
-async function load(key) {
-  const n = parseInt(await raw.get(key + '_n') || '0', 10);
-  if (!n) return null;
+async function cloudLoad(key) {
+  const nraw = await cloud.get(key + '_n');
+  if (!nraw) return null;
+  const n = parseInt(nraw, 10);
+  if (!n) return '';
   const keys = Array.from({ length: n }, (_, i) => key + '_' + i);
-  const got = await raw.getMany(keys);
+  const got = await cloud.getMany(keys);
   return keys.map(k => got[k] || '').join('');
 }
-async function remove(key) {
-  const n = parseInt(await raw.get(key + '_n') || '0', 10);
-  const keys = [key + '_n'];
-  for (let i = 0; i < n; i++) keys.push(key + '_' + i);
-  await raw.del(keys);
+// зберігає і локально, і в хмару; повертає, що вдалося
+async function save(key, str) {
+  const ts = Date.now();
+  const local = LS.set(key, str) && LS.set(key + '__t', String(ts));
+  let ok = null;
+  if (cloud) { try { await cloudSave(key, str, ts); ok = true; } catch (e) { ok = false; } }
+  return { local, cloud: ok };
+}
+// бере найновішу копію (локальну або хмарну) і підтягує відстаючу
+async function loadBest(key) {
+  const lv = LS.get(key), lt = parseInt(LS.get(key + '__t') || '0', 10) || 0;
+  let cv = null, ct = 0;
+  if (cloud) {
+    try {
+      const meta = await cloud.get(key + '_t');
+      if (meta) {
+        const [t, len] = meta.split('|');
+        const v = await cloudLoad(key);
+        if (v !== null && v.length === +len) { cv = v; ct = +t; }
+      } else {
+        const v = await cloudLoad(key); // дані зі старої версії без мітки
+        if (v !== null) { cv = v; ct = 1; }
+      }
+    } catch (e) {}
+  }
+  if (cv !== null && ct >= lt) {
+    if (cv !== lv) { LS.set(key, cv); LS.set(key + '__t', String(ct)); }
+    return cv;
+  }
+  if (lv !== null && cloud && lt > ct) cloudSave(key, lv, lt).catch(() => {});
+  return lv !== null ? lv : cv;
 }
 
 /* ---------- стан ---------- */
@@ -443,23 +469,24 @@ function renderSchedule() {
 function openViewer() { $('viewerBody').innerHTML = photoHTML(viewMode); $('viewer').style.display = 'block'; }
 function closeViewer() { $('viewer').style.display = 'none'; }
 $('split').oninput = e => { S.split = +e.target.value / 100; renderPhoto(); };
-$('split').onchange = () => save('split', String(S.split)).catch(() => toast('Не вдалося зберегти'));
+$('split').onchange = () => { save('split', String(S.split)); };
 
-const MAX_IMG = 600000; // символів base64 на фото
+function setSync(t) { $('syncInfo').textContent = t; }
+const MAX_IMG = 320000; // символів base64 на фото
 function compress(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const im = new Image();
     im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
     im.onload = () => {
-      let scale = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), q = 0.8, out;
+      let scale = Math.min(1, 1700 / Math.max(im.naturalWidth, im.naturalHeight)), q = 0.8, out;
       for (let i = 0; i < 8; i++) {
         const c = document.createElement('canvas');
         c.width = Math.round(im.naturalWidth * scale); c.height = Math.round(im.naturalHeight * scale);
         c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
         out = c.toDataURL('image/jpeg', q);
         if (out.length <= MAX_IMG) break;
-        q = Math.max(0.5, q - 0.06); scale *= 0.88;
+        q = Math.max(0.45, q - 0.06); scale *= 0.88;
       }
       URL.revokeObjectURL(url);
       resolve(out);
@@ -471,17 +498,22 @@ $('uploadBtn').onclick = () => $('file').click();
 $('file').onchange = async e => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
-  $('uploadBtn').disabled = true; toast('Стискаю і зберігаю…');
+  $('uploadBtn').disabled = true; toast('Стискаю фото…');
   try {
     const data = await compress(f);
     S.img = data;
-    await save('img', data);
-    toast('Фото збережено');
-  } catch (err) { toast('Не вдалося зберегти фото'); }
+    renderSchedule(); renderHome();
+    setSync('⏳ Зберігаю…');
+    const r = await save('img', data);
+    if (r.local && r.cloud !== false) { setSync(r.cloud ? '☁️ Збережено: на пристрої і в хмарі Telegram' : '✅ Збережено на цьому пристрої'); toast('Фото збережено'); }
+    else if (r.local) { setSync('⚠️ Збережено на цьому пристрої, хмара не відповіла — синхронізую при наступному відкритті'); toast('Збережено локально'); }
+    else if (r.cloud) { setSync('☁️ Збережено в хмарі Telegram'); toast('Фото збережено'); }
+    else { setSync('❌ Не вдалося зберегти фото'); toast('Не вдалося зберегти фото'); }
+  } catch (err) { toast('Не вдалося обробити фото'); }
   $('uploadBtn').disabled = false;
   renderSchedule(); renderHome();
 };
-$('delBtn').onclick = async () => { S.img = null; await remove('img'); renderSchedule(); toast('Видалено'); };
+$('delBtn').onclick = async () => { S.img = null; renderSchedule(); setSync(''); await save('img', ''); toast('Видалено'); };
 
 /* ---------- дзвінки ---------- */
 function renderBells() {
@@ -546,14 +578,20 @@ function renderAll() {
 
 /* ---------- старт ---------- */
 (async function init() {
+  // 1) миттєво показуємо локальну копію
+  S.anchor = LS.get('anchor') || null; S.bells = LS.get('bells') || ''; S.img = LS.get('img') || null;
+  const lsp = parseFloat(LS.get('split')); if (lsp >= 0.4 && lsp <= 0.6) S.split = lsp;
+  try { S.notes = JSON.parse(LS.get('notes') || '[]'); } catch (e) { S.notes = []; }
+  viewMode = currentWeek() || 1;
   renderAll();
+  // 2) звіряємо з хмарою і беремо найновіше
   try {
-    const [anchor, bells, notes, img, split] = await Promise.all([load('anchor'), load('bells'), load('notes'), load('img'), load('split')]);
-    S.anchor = anchor; S.bells = bells || ''; S.img = img;
+    const [anchor, bells, notes, img, split] = await Promise.all(['anchor', 'bells', 'notes', 'img', 'split'].map(loadBest));
+    S.anchor = anchor || null; S.bells = bells || ''; S.img = img || null;
     const sp = parseFloat(split); if (sp >= 0.4 && sp <= 0.6) S.split = sp;
     try { S.notes = notes ? JSON.parse(notes) : []; } catch (e) { S.notes = []; }
-  } catch (e) { toast('Не вдалося завантажити дані'); }
-  viewMode = currentWeek() || 1;
+    if (S.anchor) viewMode = currentWeek() || viewMode;
+  } catch (e) { toast('Не вдалося звірити з хмарою'); }
   renderAll();
 })();
 </script>
