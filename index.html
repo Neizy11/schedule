@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>College bot</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Unbounded:wght@800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080b14; --card:#111827; --card2:#0e1422; --line:#ffffff17;
+  --text:#f2f5fb; --dim:#8b97ad;
+  --blue:#2f7bff; --blue2:#8fd3ff; --amber:#ffb21e; --amber2:#ff8a00;
+  --pur:#6a35f0; --pur2:#b14dff; --green:#19d28a; --red:#ff5d5d; --ind:#8b7dff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;color:var(--text);font:500 15px/1.45 'Manrope',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:radial-gradient(900px 420px at 85% -8%,#1a2a6055,transparent),radial-gradient(700px 400px at -10% 30%,#3a1a6a33,transparent),var(--bg);
+  background-attachment:fixed;min-height:100%}
+main{padding:14px 14px calc(110px + env(safe-area-inset-bottom))}
+section{display:none;animation:fade .25s ease}
+section.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.disp{font-family:'Unbounded','Manrope',sans-serif;font-weight:900}
+
+/* шапка */
+.top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.ava{width:52px;height:52px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--blue),var(--pur2));display:grid;place-items:center;font-weight:800;font-size:20px;overflow:hidden;box-shadow:0 0 0 2px #ffffff22,0 0 24px -4px var(--ind)}
+.ava img{width:100%;height:100%;object-fit:cover}
+.who{flex:1;min-width:0}
+.who b{display:block;font-size:19px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who span{color:var(--dim);font-size:13px}
+.pill{display:flex;align-items:center;gap:8px;background:#0b1120;border:1px solid var(--line);padding:10px 14px;border-radius:18px;font-weight:700;white-space:nowrap}
+.pill b{font-size:18px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 1.8s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* картки */
+.hero{background:linear-gradient(135deg,#172344,#0f1526);border:1px solid #ffffff1c;border-radius:24px;padding:16px 18px;margin-bottom:12px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#4a7bff44,transparent 70%)}
+.live{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;color:var(--green);font-weight:800;text-transform:uppercase}
+.htitle{font-family:'Unbounded',sans-serif;font-weight:800;font-size:21px;margin:8px 0 2px;line-height:1.2}
+.hsub{color:var(--dim);font-size:14px}
+.bar{height:7px;background:#ffffff14;border-radius:7px;margin-top:14px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:7px;transition:width .6s}
+
+.banner{position:relative;height:108px;border-radius:26px;margin-bottom:12px;padding:0 20px;display:flex;align-items:center;overflow:hidden;cursor:pointer;
+  box-shadow:inset 0 0 0 1px #ffffff2a,0 14px 30px -16px var(--glow);transition:transform .12s}
+.banner:active{transform:scale(.985)}
+.banner::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% 20%,#ffffff40,transparent 45%)}
+.b-blue{background:linear-gradient(120deg,#3b82ff,#9ad8ff);--glow:#3b82ff}
+.b-amber{background:linear-gradient(120deg,#ffb21e,#ffd86b);--glow:#ffb21e;color:#2b1a00}
+.b-pur{background:linear-gradient(120deg,#5b2be0,#b14dff);--glow:#8b3dff}
+.ttl{font-family:'Unbounded',sans-serif;font-weight:900;font-size:22px;letter-spacing:.01em;text-transform:uppercase;text-shadow:0 2px 0 #0002;position:relative}
+.bsub{position:relative;font-size:13px;font-weight:700;opacity:.85;margin-top:4px}
+.art{position:absolute;right:16px;top:50%;transform:translateY(-52%) rotate(-8deg);font-size:66px;filter:drop-shadow(0 10px 14px #0006)}
+.chip{position:absolute;padding:3px 10px;border-radius:10px;font-weight:800;font-size:13px;background:#1fe08a;color:#052a19;box-shadow:0 4px 12px #0003}
+.c1{right:108px;top:12px;transform:rotate(12deg)}
+.c2{right:14px;bottom:10px;transform:rotate(-10deg)}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{position:relative;height:190px;border-radius:28px;padding:16px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;border:1.5px solid;transition:transform .12s}
+.tile:active{transform:scale(.985)}
+.t-gold{background:radial-gradient(circle at 50% 110%,#7a550f66,transparent 62%),linear-gradient(#18130a,#0b0a07);border-color:#e8b84f99;box-shadow:0 0 34px -14px #e8b84f}
+.t-green{background:radial-gradient(circle at 50% 110%,#0f7a4e66,transparent 62%),linear-gradient(#08160f,#070d0a);border-color:#3be79b88;box-shadow:0 0 34px -14px #19d28a}
+.tt{font-family:'Unbounded',sans-serif;font-weight:900;font-style:italic;font-size:17px;text-transform:uppercase;background:linear-gradient(#fff,var(--g,#ffd37a));-webkit-background-clip:text;background-clip:text;color:transparent}
+.t-green .tt{--g:#7dffc3}
+.big{font-family:'Unbounded',sans-serif;font-weight:900;font-size:82px;line-height:1;background:linear-gradient(#fff,var(--g,#ffc94d));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 14px #0008)}
+.t-green .big{--g:#2be08f}
+.tsub{font-size:13px;color:var(--dim);font-weight:700}
+
+h2{font-family:'Unbounded',sans-serif;font-weight:900;font-size:22px;margin:4px 0 14px}
+.head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.head h2{margin:0;flex:1}
+.card{background:linear-gradient(160deg,#131b2e,#0e1422);border:1px solid var(--line);border-radius:22px;padding:14px;margin-bottom:12px}
+.hint{color:var(--dim);font-size:13px}
+.center{text-align:center}
+
+.btn{background:linear-gradient(120deg,var(--blue),#5aa2ff);color:#fff;padding:13px 16px;border-radius:16px;font-weight:800;box-shadow:0 10px 24px -12px var(--blue)}
+.btn.sec{background:#ffffff12;box-shadow:none}
+.btn.danger{background:#ff5d5d1f;color:var(--red);box-shadow:none}
+.btn:disabled{opacity:.5}
+.btn.sm{padding:9px 14px;font-size:14px;border-radius:13px}
+.link{background:none;color:var(--ind);padding:4px 2px;font-weight:700}
+.row{display:flex;gap:10px;align-items:center}
+.grow{flex:1}
+
+.seg{display:flex;background:#0b1120;border:1px solid var(--line);border-radius:18px;padding:4px;margin-bottom:14px}
+.seg button{flex:1;background:transparent;color:var(--dim);padding:9px 4px;border-radius:14px;font-weight:800;font-size:14px;line-height:1.2}
+.seg button small{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--green);min-height:12px}
+.seg button.on{background:linear-gradient(135deg,#3b6dff,#6a5bff);color:#fff;box-shadow:0 6px 18px -8px #5b6dff}
+.seg button.on small{color:#c9ffe6}
+
+.pframe{border-radius:20px;overflow:hidden;border:1.5px solid #8b7dff55;box-shadow:0 0 36px -14px var(--ind);background:#000}
+.crop{overflow:hidden}
+.crop img,.pfull{display:block;max-width:none}
+.pfull{width:100%}
+.empty{text-align:center;padding:38px 16px}
+.empty .em{font-size:54px;filter:drop-shadow(0 8px 14px #0008)}
+.empty b{display:block;font-size:17px;margin:8px 0 4px}
+details{margin-top:12px}
+summary{color:var(--dim);font-weight:700;cursor:pointer;padding:6px 0}
+input[type=range]{width:100%;accent-color:var(--ind)}
+
+/* дзвінки */
+.bell{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;margin-bottom:8px;background:#0f1626;border:1px solid var(--line);position:relative;overflow:hidden}
+.bell .n{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-family:'Unbounded',sans-serif;font-weight:900;background:#ffffff12;flex:none}
+.bell .lb{flex:1;font-weight:800}
+.bell .tm{font-weight:800;font-variant-numeric:tabular-nums;color:var(--blue2)}
+.bell.past{opacity:.42}
+.bell.now{background:linear-gradient(120deg,#2a4fd0,#6a5bff);border-color:#9aa9ff88;box-shadow:0 10px 28px -12px #5b6dff}
+.bell.now .n{background:#ffffff33}
+.bell.now .tm{color:#fff}
+.bell .pr{position:absolute;left:0;bottom:0;height:3px;background:var(--green)}
+.plain{padding:6px 4px;color:var(--dim)}
+textarea,input[type=text],input[type=date]{width:100%;font:inherit;color:var(--text);background:#0a101d;border:1px solid #ffffff22;border-radius:16px;padding:13px 14px;outline:none}
+textarea{min-height:260px;resize:vertical;line-height:1.6}
+textarea:focus,input:focus{border-color:var(--ind)}
+
+/* нотатки */
+.note{display:flex;gap:12px;align-items:flex-start;padding:13px 6px;border-bottom:1px solid #ffffff10}
+.note:last-child{border-bottom:0}
+.chk{width:26px;height:26px;border-radius:9px;flex:none;border:2px solid #ffffff40;background:transparent;color:transparent;display:grid;place-items:center;font-weight:900;font-size:15px;margin-top:1px}
+.chk.on{background:var(--green);border-color:var(--green);color:#04281a}
+.note .t{flex:1;word-break:break-word;font-weight:700}
+.note.done .t{text-decoration:line-through;color:var(--dim);font-weight:500}
+.due{display:inline-block;margin-top:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:9px;background:#ffffff12;color:var(--dim)}
+.due.today{background:#ffb21e26;color:var(--amber)}
+.due.over{background:#ff5d5d26;color:var(--red)}
+.x{background:none;color:var(--dim);font-size:18px;padding:2px 6px}
+
+/* навігація */
+nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:4px;padding:6px;border-radius:26px;
+  background:#0d1322e6;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);box-shadow:0 18px 40px -12px #000}
+nav button{flex:1;background:transparent;color:var(--dim);padding:8px 2px 7px;border-radius:20px;font-size:11px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:3px;border:1px solid transparent;transition:all .2s}
+nav svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:#a99cff;background:linear-gradient(180deg,#6d5dfc40,#6d5dfc12);border-color:#8b7dff66;box-shadow:0 0 22px -6px #6d5dfc}
+
+#viewer{position:fixed;inset:0;background:#000f;z-index:50;display:none;overflow:auto}
+#viewerBody{width:250%}
+#viewer .close{position:fixed;top:12px;right:12px;z-index:51;width:42px;height:42px;border-radius:50%;background:#000a;color:#fff;font-size:18px;border:1px solid #fff3}
+#toast{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);background:#000e;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:90%;border:1px solid #fff2}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="ava" id="ava">?</div>
+    <div class="who"><b id="uName">Привіт</b><span id="uDate"></span></div>
+    <div class="pill" id="weekPill"></div>
+  </div>
+
+  <div id="weekSetup" class="card" style="display:none">
+    <b style="font-size:16px">Який зараз тиждень?</b>
+    <div class="hint" style="margin:4px 0 12px">Скажи один раз — далі я сам чергую 1 і 2.</div>
+    <div class="row"><button class="btn grow" onclick="setCurrentWeek(1)">Тиждень 1</button><button class="btn grow" onclick="setCurrentWeek(2)">Тиждень 2</button></div>
+  </div>
+
+  <!-- ГОЛОВНА -->
+  <section id="s-home" class="active"><div id="home"></div></section>
+
+  <!-- РОЗКЛАД -->
+  <section id="s-schedule">
+    <h2>Розклад</h2>
+    <div class="seg" id="weekSeg"></div>
+    <div id="photoBox"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="uploadBtn" class="btn grow">📷 Завантажити фото</button>
+      <button id="delBtn" class="btn danger" style="display:none">Видалити</button>
+    </div>
+    <details id="tune" style="display:none">
+      <summary>⚙️ Підігнати фото</summary>
+      <div class="card" style="margin-top:6px">
+        <div class="hint" style="margin-bottom:8px">Лінія між «1 тиждень» і «2 тиждень» на фото має збігатись із розділенням. Підсунь повзунок, якщо одна колонка зачепила частину іншої.</div>
+        <input type="range" id="split" min="40" max="60" step="0.5" value="50">
+        <div class="hint" style="margin-top:10px">Тижні не збігаються з реальністю? <button class="link" onclick="swapWeek()">Поміняти місцями 1 ↔ 2</button></div>
+      </div>
+    </details>
+    <input type="file" id="file" accept="image/*" hidden>
+  </section>
+
+  <!-- ДЗВІНКИ -->
+  <section id="s-bells">
+    <div class="head"><h2>Дзвінки</h2><button class="btn sec sm" id="bellsEdit">✏️ Змінити</button></div>
+    <div id="bellsView"></div>
+    <div id="bellsEditor" style="display:none">
+      <textarea id="bellsText" placeholder="1 пара  08:30 – 09:50&#10;2 пара  10:00 – 11:20&#10;3 пара  11:40 – 13:00"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button class="btn grow" id="bellsSave">Зберегти</button>
+        <button class="btn sec" id="bellsCancel">Скасувати</button>
+      </div>
+      <div class="hint" style="margin-top:10px">Кожна пара — окремий рядок із часом <b>08:30 – 09:50</b>. Тоді я підсвічу поточну пару.</div>
+    </div>
+  </section>
+
+  <!-- НОТАТКИ -->
+  <section id="s-notes">
+    <h2>Нотатки</h2>
+    <div class="card">
+      <input type="text" id="noteText" placeholder="ДЗ, нагадування…" maxlength="300">
+      <div class="row" style="margin-top:10px">
+        <input type="date" id="noteDue" class="grow">
+        <button class="btn" id="noteAdd">Додати</button>
+      </div>
+    </div>
+    <div class="card" id="notesList"></div>
+    <button class="link" id="clearDone">Прибрати виконані</button>
+  </section>
+</main>
+
+<nav>
+  <button data-tab="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Головна</button>
+  <button data-tab="schedule"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>Розклад</button>
+  <button data-tab="bells"><svg viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 1 1 12 0v6l2 2H4z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Дзвінки</button>
+  <button data-tab="notes"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7M9 8h3"/></svg>Нотатки</button>
+</nav>
+
+<div id="viewer"><button class="close" onclick="closeViewer()">✕</button><div id="viewerBody"></div></div>
+<div id="toast"></div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  tg.ready(); tg.expand();
+  try { tg.setHeaderColor('#080b14'); tg.setBackgroundColor('#080b14'); tg.setBottomBarColor('#080b14'); } catch (e) {}
+}
+
+/* ---------- сховище: Telegram CloudStorage (синхронно між пристроями), запасний варіант — localStorage ---------- */
+const useCloud = !!(tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9'));
+const raw = {
+  get: k => new Promise(res => {
+    if (useCloud) tg.CloudStorage.getItem(k, (e, v) => res(e ? null : (v || null)));
+    else res(localStorage.getItem('app_' + k));
+  }),
+  getMany: async keys => {
+    const out = {};
+    for (let i = 0; i < keys.length; i += 50) {
+      const part = keys.slice(i, i + 50);
+      const got = await new Promise(res => {
+        if (useCloud) tg.CloudStorage.getItems(part, (e, v) => res(e ? {} : v));
+        else res(Object.fromEntries(part.map(k => [k, localStorage.getItem('app_' + k)])));
+      });
+      Object.assign(out, got);
+    }
+    return out;
+  },
+  set: (k, v) => new Promise((res, rej) => {
+    if (useCloud) {
+      tg.CloudStorage.setItem(k, v, e => {
+        if (!e) return res();
+        tg.CloudStorage.setItem(k, v, e2 => e2 ? rej(e2) : res()); // одна повторна спроба
+      });
+    } else { try { localStorage.setItem('app_' + k, v); res(); } catch (x) { rej(x); } }
+  }),
+  del: keys => new Promise(res => {
+    if (!keys.length) return res();
+    if (useCloud) tg.CloudStorage.removeItems(keys, () => res());
+    else { keys.forEach(k => localStorage.removeItem('app_' + k)); res(); }
+  }),
+};
+const CH = 3500; // ліміт CloudStorage — 4096 символів на ключ, тому ріжемо на шматки
+async function save(key, str) {
+  const old = parseInt(await raw.get(key + '_n') || '0', 10);
+  const parts = [];
+  for (let i = 0; i < str.length; i += CH) parts.push(str.slice(i, i + CH));
+  for (let i = 0; i < parts.length; i += 8) {
+    await Promise.all(parts.slice(i, i + 8).map((p, j) => raw.set(key + '_' + (i + j), p)));
+  }
+  await raw.set(key + '_n', String(parts.length));
+  const extra = [];
+  for (let i = parts.length; i < old; i++) extra.push(key + '_' + i);
+  await raw.del(extra);
+}
+async function load(key) {
+  const n = parseInt(await raw.get(key + '_n') || '0', 10);
+  if (!n) return null;
+  const keys = Array.from({ length: n }, (_, i) => key + '_' + i);
+  const got = await raw.getMany(keys);
+  return keys.map(k => got[k] || '').join('');
+}
+async function remove(key) {
+  const n = parseInt(await raw.get(key + '_n') || '0', 10);
+  const keys = [key + '_n'];
+  for (let i = 0; i < n; i++) keys.push(key + '_' + i);
+  await raw.del(keys);
+}
+
+/* ---------- стан ---------- */
+const S = { anchor: null, bells: '', notes: [], img: null, split: 0.5 };
+let viewMode = 1;      // 1 | 2 | 'all'
+let curTab = 'home';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+function haptic() { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} }
+const pad = n => String(n).padStart(2, '0');
+const fmtT = m => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+function dur(m) { return m >= 60 ? `${Math.floor(m / 60)} год${m % 60 ? ' ' + (m % 60) + ' хв' : ''}` : `${m} хв`; }
+
+/* ---------- тиждень 1/2 ---------- */
+function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function weekOf(date) {
+  if (!S.anchor) return null;
+  const diff = Math.round((mondayOf(date) - new Date(S.anchor + 'T00:00:00')) / (7 * 864e5));
+  return ((diff % 2) + 2) % 2 === 0 ? 1 : 2;
+}
+function currentWeek() { // у неділю дивимось уже на наступний тиждень
+  const d = new Date();
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return weekOf(d);
+}
+async function setCurrentWeek(n) {
+  const m = mondayOf(new Date());
+  if (n === 2) m.setDate(m.getDate() - 7);
+  S.anchor = iso(m);
+  await save('anchor', S.anchor);
+  viewMode = currentWeek();
+  renderAll(); toast('Збережено');
+}
+async function swapWeek() {
+  if (!S.anchor) return;
+  const a = new Date(S.anchor + 'T00:00:00'); a.setDate(a.getDate() - 7);
+  S.anchor = iso(a);
+  await save('anchor', S.anchor);
+  viewMode = currentWeek();
+  renderAll(); toast('Тижні поміняно');
+}
+
+/* ---------- шапка ---------- */
+function renderHeader() {
+  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  const name = (u && u.first_name) || 'Студент';
+  $('uName').textContent = name;
+  const ds = new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('uDate').textContent = ds.charAt(0).toUpperCase() + ds.slice(1);
+  $('ava').innerHTML = u && u.photo_url ? `<img src="${esc(u.photo_url)}" alt="">` : esc(name.charAt(0).toUpperCase());
+  const w = currentWeek();
+  $('weekPill').innerHTML = `<i class="dot"></i>Тиждень <b>${w || '?'}</b>`;
+}
+
+/* ---------- дзвінки: розбір ---------- */
+const TIME_RE = /(\d{1,2})[:.](\d{2})\s*[–—-]\s*(\d{1,2})[:.](\d{2})/;
+function parseBells() {
+  return S.bells.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const m = l.match(TIME_RE);
+    if (!m) return { raw: l };
+    const label = l.replace(TIME_RE, '').replace(/[\s|·:–—-]+$/, '').replace(/^[\s|·:–—-]+/, '').trim();
+    const num = (label.match(/\d+/) || [''])[0];
+    return { s: +m[1] * 60 + +m[2], e: +m[3] * 60 + +m[4], label, num, text: `${fmtT(+m[1] * 60 + +m[2])} – ${fmtT(+m[3] * 60 + +m[4])}` };
+  });
+}
+function nowInfo() {
+  const d = new Date(), day = d.getDay();
+  if (day === 0 || day === 6) return { t: 'weekend' };
+  const items = parseBells().filter(x => x.s !== undefined);
+  if (!items.length) return { t: 'none' };
+  const m = d.getHours() * 60 + d.getMinutes();
+  const cur = items.find(x => m >= x.s && m < x.e);
+  if (cur) return { t: 'now', it: cur, left: cur.e - m, pct: (m - cur.s) / (cur.e - cur.s) };
+  const nxt = items.find(x => x.s > m);
+  if (nxt) return { t: 'next', it: nxt, left: nxt.s - m };
+  return { t: 'done' };
+}
+
+/* ---------- головна ---------- */
+function dueLabel(due) {
+  const t = iso(new Date());
+  const tm = new Date(); tm.setDate(tm.getDate() + 1);
+  if (due < t) return ['прострочено', 'over'];
+  if (due === t) return ['сьогодні', 'today'];
+  if (due === iso(tm)) return ['завтра', ''];
+  const [, m, d] = due.split('-'); return [`${d}.${m}`, ''];
+}
+function heroHTML() {
+  const n = nowInfo();
+  const tpl = (live, title, sub, bar) => `<div class="hero" onclick="go('bells')"><div class="live"><i class="dot"></i>${live}</div><div class="htitle">${title}</div><div class="hsub">${sub}</div>${bar !== undefined ? `<div class="bar"><i style="width:${Math.round(bar * 100)}%"></i></div>` : ''}</div>`;
+  if (n.t === 'now') return tpl('Зараз', esc(n.it.label || 'Йде пара'), `до ${fmtT(n.it.e)} · ще ${dur(n.left)}`, n.pct);
+  if (n.t === 'next') return tpl('Далі', esc(n.it.label || 'Наступна пара'), `о ${fmtT(n.it.s)} · через ${dur(n.left)}`);
+  if (n.t === 'done') return tpl('Сьогодні', 'Пари закінчились 🎉', 'Час відпочити або зробити ДЗ');
+  if (n.t === 'weekend') {
+    const nx = new Date(); nx.setDate(nx.getDate() + ((8 - nx.getDay()) % 7 || 7));
+    const w = weekOf(nx);
+    return tpl('Вихідні', 'Відпочивай 😴', w ? `З понеділка — Тиждень ${w}` : 'Пар немає');
+  }
+  return tpl('Дзвінки', 'Додай розклад дзвінків', 'Тоді тут буде видно поточну пару');
+}
+function renderHome() {
+  const w = currentWeek();
+  const open = S.notes.filter(n => !n.done);
+  const nearest = open.filter(n => n.due).sort((a, b) => a.due.localeCompare(b.due))[0];
+  const n = nowInfo();
+  const bellsSub = n.t === 'now' ? `Йде · ще ${dur(n.left)}` : n.t === 'next' ? `Далі о ${fmtT(n.it.s)}` : 'Час пар';
+  $('home').innerHTML = `
+    ${heroHTML()}
+    <div class="banner b-blue" onclick="go('schedule')">
+      <div><div class="ttl">Розклад</div><div class="bsub">Тиждень ${w || '?'} · зараз</div></div>
+      <span class="chip c1">Т1</span><span class="chip c2">Т2</span><div class="art">📅</div>
+    </div>
+    <div class="banner b-amber" onclick="go('bells')">
+      <div><div class="ttl">Дзвінки</div><div class="bsub">${bellsSub}</div></div>
+      <div class="art">🔔</div>
+    </div>
+    <div class="banner b-pur" onclick="go('notes')">
+      <div><div class="ttl">Нотатки</div><div class="bsub">${open.length ? open.length + ' активних' : 'Все чисто'}</div></div>
+      <div class="art">📝</div>
+    </div>
+    <div class="tiles">
+      <div class="tile t-gold" onclick="go('schedule')"><div class="tt">Тиждень</div><div class="big">${w || '?'}</div><div class="tsub">${w ? 'поточний' : 'не обрано'}</div></div>
+      <div class="tile t-green" onclick="go('notes')"><div class="tt">Завдання</div><div class="big">${open.length}</div><div class="tsub">${nearest ? 'найближче: ' + dueLabel(nearest.due)[0] : 'без дедлайнів'}</div></div>
+    </div>`;
+}
+
+/* ---------- розклад (одне фото на обидва тижні) ---------- */
+function photoHTML(mode) {
+  if (mode === 'all') return `<img class="pfull" src="${S.img}" alt="">`;
+  const sp = S.split, p = mode === 1 ? sp : 1 - sp;
+  const w = 100 / p, ml = mode === 1 ? 0 : -(sp / p) * 100;
+  return `<div class="crop"><img src="${S.img}" style="width:${w}%;margin-left:${ml}%" alt=""></div>`;
+}
+function renderPhoto() {
+  $('photoBox').innerHTML = S.img
+    ? `<div class="pframe" onclick="openViewer()">${photoHTML(viewMode)}</div><div class="hint center" style="margin-top:8px">Тапни по фото, щоб збільшити</div>`
+    : `<div class="card empty"><div class="em">📷</div><b>Фото ще немає</b><div class="hint">Завантаж фото, де на одному аркуші обидва тижні — я сам покажу потрібну колонку.</div></div>`;
+}
+function renderSchedule() {
+  const cur = currentWeek();
+  $('weekSeg').innerHTML = [[1, 'Тиждень 1'], [2, 'Тиждень 2'], ['all', 'Весь аркуш']].map(([k, t]) =>
+    `<button data-m="${k}" class="${viewMode === k ? 'on' : ''}">${t}<small>${k !== 'all' && cur === k ? 'зараз' : ''}</small></button>`).join('');
+  $('weekSeg').querySelectorAll('button').forEach(b => b.onclick = () => { viewMode = b.dataset.m === 'all' ? 'all' : +b.dataset.m; haptic(); renderSchedule(); });
+  renderPhoto();
+  $('uploadBtn').textContent = S.img ? '📷 Замінити фото' : '📷 Завантажити фото';
+  $('delBtn').style.display = S.img ? '' : 'none';
+  $('tune').style.display = S.img ? '' : 'none';
+  $('split').value = S.split * 100;
+}
+function openViewer() { $('viewerBody').innerHTML = photoHTML(viewMode); $('viewer').style.display = 'block'; }
+function closeViewer() { $('viewer').style.display = 'none'; }
+$('split').oninput = e => { S.split = +e.target.value / 100; renderPhoto(); };
+$('split').onchange = () => save('split', String(S.split)).catch(() => toast('Не вдалося зберегти'));
+
+const MAX_IMG = 600000; // символів base64 на фото
+function compress(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+    im.onload = () => {
+      let scale = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), q = 0.8, out;
+      for (let i = 0; i < 8; i++) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(im.naturalWidth * scale); c.height = Math.round(im.naturalHeight * scale);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        out = c.toDataURL('image/jpeg', q);
+        if (out.length <= MAX_IMG) break;
+        q = Math.max(0.5, q - 0.06); scale *= 0.88;
+      }
+      URL.revokeObjectURL(url);
+      resolve(out);
+    };
+    im.src = url;
+  });
+}
+$('uploadBtn').onclick = () => $('file').click();
+$('file').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  $('uploadBtn').disabled = true; toast('Стискаю і зберігаю…');
+  try {
+    const data = await compress(f);
+    S.img = data;
+    await save('img', data);
+    toast('Фото збережено');
+  } catch (err) { toast('Не вдалося зберегти фото'); }
+  $('uploadBtn').disabled = false;
+  renderSchedule(); renderHome();
+};
+$('delBtn').onclick = async () => { S.img = null; await remove('img'); renderSchedule(); toast('Видалено'); };
+
+/* ---------- дзвінки ---------- */
+function renderBells() {
+  const items = parseBells();
+  const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), workday = d.getDay() % 6 !== 0;
+  $('bellsView').innerHTML = items.length ? items.map(x => {
+    if (x.s === undefined) return `<div class="plain">${esc(x.raw)}</div>`;
+    const now = workday && m >= x.s && m < x.e, past = workday && m >= x.e;
+    return `<div class="bell${now ? ' now' : ''}${past ? ' past' : ''}"><div class="n">${esc(x.num || '•')}</div><div class="lb">${esc(x.label || 'Пара')}</div><div class="tm">${x.text}</div>${now ? `<div class="pr" style="width:${Math.round((m - x.s) / (x.e - x.s) * 100)}%"></div>` : ''}</div>`;
+  }).join('') : '<div class="card empty"><div class="em">🔔</div><b>Розклад дзвінків порожній</b><div class="hint">Натисни «Змінити» і встав його текстом.</div></div>';
+}
+$('bellsEdit').onclick = () => { $('bellsText').value = S.bells; $('bellsView').style.display = 'none'; $('bellsEdit').style.display = 'none'; $('bellsEditor').style.display = 'block'; };
+function closeBellsEditor() { $('bellsView').style.display = ''; $('bellsEdit').style.display = ''; $('bellsEditor').style.display = 'none'; }
+$('bellsCancel').onclick = closeBellsEditor;
+$('bellsSave').onclick = async () => {
+  S.bells = $('bellsText').value.trim();
+  try { await save('bells', S.bells); toast('Збережено'); } catch (e) { toast('Помилка збереження'); }
+  closeBellsEditor(); renderBells(); renderHome();
+};
+setInterval(() => { renderBells(); if (curTab === 'home') renderHome(); }, 60000);
+
+/* ---------- нотатки ---------- */
+async function saveNotes() { try { await save('notes', JSON.stringify(S.notes)); } catch (e) { toast('Помилка збереження'); } }
+function renderNotes() {
+  const sorted = [...S.notes].sort((a, b) => (a.done - b.done) || (a.due || '9999').localeCompare(b.due || '9999') || a.id - b.id);
+  $('notesList').innerHTML = sorted.length ? sorted.map(n => {
+    const dl = n.due ? dueLabel(n.due) : null;
+    return `<div class="note${n.done ? ' done' : ''}">
+      <button class="chk${n.done ? ' on' : ''}" onclick="toggleNote(${n.id})">✓</button>
+      <div class="t">${esc(n.text)}${dl ? `<br><span class="due${n.done ? '' : ' ' + dl[1]}">${dl[0]}</span>` : ''}</div>
+      <button class="x" onclick="delNote(${n.id})">✕</button></div>`;
+  }).join('') : '<div class="empty"><div class="em">✨</div><b>Поки порожньо</b></div>';
+}
+$('noteAdd').onclick = async () => {
+  const text = $('noteText').value.trim();
+  if (!text) return;
+  S.notes.push({ id: Date.now(), text, due: $('noteDue').value || null, done: false });
+  $('noteText').value = ''; $('noteDue').value = '';
+  haptic(); renderNotes(); renderHome(); await saveNotes();
+};
+$('noteText').addEventListener('keydown', e => { if (e.key === 'Enter') $('noteAdd').click(); });
+async function toggleNote(id) { const n = S.notes.find(x => x.id === id); if (n) n.done = !n.done; haptic(); renderNotes(); renderHome(); await saveNotes(); }
+async function delNote(id) { S.notes = S.notes.filter(x => x.id !== id); renderNotes(); renderHome(); await saveNotes(); }
+$('clearDone').onclick = async () => { S.notes = S.notes.filter(n => !n.done); renderNotes(); renderHome(); await saveNotes(); };
+
+/* ---------- навігація ---------- */
+function go(tab) {
+  curTab = tab;
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('active', s.id === 's-' + tab));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $('weekSetup').style.display = !S.anchor && (tab === 'home' || tab === 'schedule') ? 'block' : 'none';
+  if (tab === 'home') renderHome();
+  if (tab === 'bells') renderBells();
+  window.scrollTo(0, 0); haptic();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.tab));
+
+function renderAll() {
+  renderHeader(); renderHome(); renderSchedule(); renderBells(); renderNotes();
+  $('weekSetup').style.display = !S.anchor && (curTab === 'home' || curTab === 'schedule') ? 'block' : 'none';
+}
+
+/* ---------- старт ---------- */
+(async function init() {
+  renderAll();
+  try {
+    const [anchor, bells, notes, img, split] = await Promise.all([load('anchor'), load('bells'), load('notes'), load('img'), load('split')]);
+    S.anchor = anchor; S.bells = bells || ''; S.img = img;
+    const sp = parseFloat(split); if (sp >= 0.4 && sp <= 0.6) S.split = sp;
+    try { S.notes = notes ? JSON.parse(notes) : []; } catch (e) { S.notes = []; }
+  } catch (e) { toast('Не вдалося завантажити дані'); }
+  viewMode = currentWeek() || 1;
+  renderAll();
+})();
+</script>
+</body>
+</html>
